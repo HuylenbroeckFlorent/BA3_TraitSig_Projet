@@ -1,0 +1,17 @@
+#line 33 of featu(...).py
+
+'''
+	x=np.arange(len(samples))/samplerate*1000
+	x_energy=np.arange(len(energy))/len(energy)*(len(samples)/samplerate*1000)
+
+	thld=zeros(len(samples))
+
+	for i in range(len(thld)):
+		thld[i]=treshold
+
+
+	
+	plot(x,normalized_samples,'b')
+	plot(x_energy,energy,'y')
+	plot(x,thld,'r')
+	show()'''
