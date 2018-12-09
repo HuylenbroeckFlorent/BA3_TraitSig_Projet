@@ -1,8 +1,11 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy.fft import rfft,irfft,fft,ifft
-from scipy.signal import find_peaks,periodogram
+from scipy.signal import find_peaks,lfilter
 from scipy.io.wavfile import read
+#import scikits.talkbox as sktb
+from lpc import lpc_ref as lpc
 from signal_preprocessing import *
 
 def signal_energy(signal):
@@ -10,10 +13,11 @@ def signal_energy(signal):
 	return sum(abs(signal)**2)
 
 def mono(signal):
-	mono=[]
-	for i in signal:
-		mono.append(int(sum(i)/len(i)))
-	return mono
+	signal=np.array(signal.astype(float))
+	if signal.ndim==1:
+		return signal
+	else:
+		return signal.sum(axis=1)/2
 
 def autocorrelation_based_pitch_estimation_system(audiopath):
 	#0.init
@@ -25,11 +29,11 @@ def autocorrelation_based_pitch_estimation_system(audiopath):
 	treshold=2.5 #subject to changes
 	width=30
 	step=10
-	#_maxlags=(width*samplerate/1000)-1 #full cover
-	_maxlags=(width*samplerate/1000)/2 
+	_maxlags=(width*samplerate/1000)-1 #full cover
+	#_maxlags=(width*samplerate/1000)/2 
 	_maxlags=int(_maxlags) 
 
-	#1.normalize the signam
+	#1.normalize the signal
 	normalized_samples=normalize_monoarray_signal(samples)
 
 	#2.split the signal into frames
@@ -64,7 +68,12 @@ def autocorrelation_based_pitch_estimation_system(audiopath):
 		if to_study[i]==1:
 			peaks_tmp, peaks_tmp_prop = find_peaks(autocorrs[i], height=0)
 			index_max=peaks_tmp[np.argmax(peaks_tmp_prop["peak_heights"])]
+			#peaks_tmp, peaks_tmp_prop=find_peaks(autocorrs[i], height=0)
+			#index_max=peaks_tmp[0]
 			peaks.append(index_max)
+			#print(peaks_tmp)
+			#print(peaks_tmp_prop)
+			#plt.show()
 		else:
 			peaks.append(0)
 
@@ -88,9 +97,9 @@ def cepstrum_based_pitch_estimation_system(audiopath):
 	samplerate, samples_int = read(audiopath)
 	samples=np.array(samples_int)
 
-	samples=mono(samples)
+	#samples=mono(samples)
 
-	treshold=10.5 #subject to changes
+	treshold=2.5 #subject to changes
 	width=30
 	step=10
 
@@ -118,7 +127,7 @@ def cepstrum_based_pitch_estimation_system(audiopath):
 	for i in range(len(frames)):
 		if to_study[i]==1:
 			frame=frames[i]
-			fft_frame=fft(frame)
+			fft_frame=rfft(frame)
 			log_frame=np.log(np.abs(fft_frame))
 			ifft_frame=ifft(log_frame)
 			cepstrums.append(ifft_frame.real)
@@ -134,42 +143,88 @@ def cepstrum_based_pitch_estimation_system(audiopath):
 		else:
 			f_zeros_cseptrum.append(0)
 
-	for i in range(len(cepstrums)):
-		if to_study[i]==1:
-			plt.plot(cepstrums[i])
-			plt.show()
-			break
-
 	return cepstrums
 
-def test_both_with_notes():
-	#C1 - 65Hz
-	#C1s - 69,29Hz
-	#D1 - 73,41Hz
-	#D1s - 77,78Hz
-	#E1 - 82,4Hz
-	#F1 - 87,3Hz
-	#F1s - 92,49Hz
-	#G1 - 97,99Hz
-	#G1s - 103,80Hz
-	#A1 - 110Hz
-	#A1s - 116,54Hz
-	#B1 - 123,47Hz
-	#C2 - 130,81Hz
-	notes = ["C1","C1s","D1","D1s","E1","F1","F1s","G1","G1s","A1","A1s","B1","C2"]
-	for note in notes:
-		path='./wav-piano-sound-master/wav/'+note+'.wav'
-		autocorrelation_based_pitch_estimation_system(path)
-		#cepstrum_based_pitch_estimation_system(path)
+def formants(audiopath):
+	#0.init
+	samplerate, samples_int = read(audiopath)
+	samples=np.array(samples_int)
+
+	#1.split the signal into frames
+	width=30
+	step=10
+
+	frames=split_into_frames(samples, samplerate, width, step)
+
+	#2.pass the signal into a first order high pass filter
+	filtered_frames=[]
+	for frame in frames:
+		filtered_frames.append(lfilter([1],[1., 0.67],frame))
+
+	#3.apply a hamming window onto the signal
+	windowed_frames=[]
+	for filtered_frame in filtered_frames:
+		windowed_frames.append(filtered_frame*np.hamming(len(filtered_frame)))
+
+	#4.extract the LPC coefficients
+	frames_LPC=[]
+	ncoeff = int(2 + samplerate / 1000)
+	for windowed_frame in windowed_frames:
+		a=lpc(windowed_frame, ncoeff)
+		frames_LPC.append(a)
+
+	#5.find the roots of the LPC
+	frames_roots=[]
+	for frame_LPC_coeficient_A in frames_LPC:
+		frame_roots=np.roots(frame_LPC_coeficient_A)
+		frame_roots=[r for r in frame_roots if np.imag(r) >=0]
+		frames_roots.append(frame_roots)
+
+	#6.find the angles
+	frames_angles=[]
+	for frame_roots in frames_roots:
+		frames_angles.append(np.arctan2(np.imag(frame_roots), np.real(frame_roots)))
+
+	#7.deduce the Hz values
+	formants=[]
+	for frame_angles in frames_angles:
+		formants.append(sorted(frame_angles*(samplerate/(2*math.pi))))
+
+	return formants
+
+
+
+def test_with_tones():
+	tones=["100","1000"]
+	#tones=["60","70","80","90","100","300","400","500"]
+	#tones=["10","20","30","40","50","60","70","80","90","100","300","400","500","600","700","800","900","1000","1200","1400","1600","1800","2000"]
+	file="./tests/"
+	wav=".wav"
+	for tone in tones:
+		path=file+tone+wav
+		#a=autocorrelation_based_pitch_estimation_system(path)
+		b=cepstrum_based_pitch_estimation_system(path)
+		plt.gcf().clear()
+		plt.plot(b)
+		plt.show()
+		'''f=formants(path)
+		plt.plot(f)
+		plt.show()
+		print(f[0])'''
 
 def test_autocorrelation_based_pitch_estimation_system():
 	for i in range(1,2,1):
 		path='./cmu_us_bdl_arctic/wav/arctic_a000'+str(i)+'.wav'
-		autocorrelation_based_pitch_estimation_system(path)
+		a=autocorrelation_based_pitch_estimation_system(path)
+		plt.plot(a)
+		plt.show()
 
 def test_cepstrum_based_pitch_estimation_system():
 	for i in range(1,2,1):
 		path='./cmu_us_bdl_arctic/wav/arctic_a000'+str(i)+'.wav'
-		cepstrum_based_pitch_estimation_system(path)
+		a=cepstrum_based_pitch_estimation_system(path)
+		print(sum(a)/len(a))
 
-test_both_with_notes()
+test_with_tones()
+#test_autocorrelation_based_pitch_estimation_system()
+#test_cepstrum_based_pitch_estimation_system()
