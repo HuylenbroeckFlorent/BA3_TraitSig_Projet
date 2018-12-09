@@ -15,3 +15,13 @@
 	plot(x_energy,energy,'y')
 	plot(x,thld,'r')
 	show()'''
+
+
+
+==========================================================
+
+
+	plt.gcf().clear()
+	#plt.plot(np.arange(len(peaks))/len(peaks)*(len(samples)/samplerate*1000),peaks,'r')
+	plt.plot(np.arange(len(f_zeros))/len(f_zeros)*(len(samples)/samplerate*1000),f_zeros,'b')
+	plt.show()

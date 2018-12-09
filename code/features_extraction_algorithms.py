@@ -68,12 +68,7 @@ def autocorrelation_based_pitch_estimation_system(audiopath):
 		if to_study[i]==1:
 			peaks_tmp, peaks_tmp_prop = find_peaks(autocorrs[i], height=0)
 			index_max=peaks_tmp[np.argmax(peaks_tmp_prop["peak_heights"])]
-			#peaks_tmp, peaks_tmp_prop=find_peaks(autocorrs[i], height=0)
-			#index_max=peaks_tmp[0]
 			peaks.append(index_max)
-			#print(peaks_tmp)
-			#print(peaks_tmp_prop)
-			#plt.show()
 		else:
 			peaks.append(0)
 
@@ -85,11 +80,6 @@ def autocorrelation_based_pitch_estimation_system(audiopath):
 		else:
 			f_zeros.append(0)
 
-	plt.gcf().clear()
-	#plt.plot(np.arange(len(peaks))/len(peaks)*(len(samples)/samplerate*1000),peaks,'r')
-	plt.plot(np.arange(len(f_zeros))/len(f_zeros)*(len(samples)/samplerate*1000),f_zeros,'b')
-	plt.show()
-
 	return f_zeros
 
 def cepstrum_based_pitch_estimation_system(audiopath):
@@ -97,7 +87,7 @@ def cepstrum_based_pitch_estimation_system(audiopath):
 	samplerate, samples_int = read(audiopath)
 	samples=np.array(samples_int)
 
-	#samples=mono(samples)
+	samples=mono(samples)
 
 	treshold=2.5 #subject to changes
 	width=30
@@ -198,30 +188,31 @@ def test_with_tones():
 	tones=["100","1000"]
 	#tones=["60","70","80","90","100","300","400","500"]
 	#tones=["10","20","30","40","50","60","70","80","90","100","300","400","500","600","700","800","900","1000","1200","1400","1600","1800","2000"]
-	file="./tests/"
+	file="../resources/sin_waves/"
 	wav=".wav"
 	for tone in tones:
 		path=file+tone+wav
-		#a=autocorrelation_based_pitch_estimation_system(path)
-		b=cepstrum_based_pitch_estimation_system(path)
+		a=autocorrelation_based_pitch_estimation_system(path)
+		#b=cepstrum_based_pitch_estimation_system(path)
 		plt.gcf().clear()
-		plt.plot(b)
+		#plt.plot(b)
+		plt.plot(a)
 		plt.show()
-		'''f=formants(path)
+		f=formants(path)
 		plt.plot(f)
 		plt.show()
-		print(f[0])'''
+		print(f[0])
 
 def test_autocorrelation_based_pitch_estimation_system():
 	for i in range(1,2,1):
-		path='./cmu_us_bdl_arctic/wav/arctic_a000'+str(i)+'.wav'
+		path='../resources/cmu_us_bdl_arctic/wav/arctic_a000'+str(i)+'.wav'
 		a=autocorrelation_based_pitch_estimation_system(path)
 		plt.plot(a)
 		plt.show()
 
 def test_cepstrum_based_pitch_estimation_system():
 	for i in range(1,2,1):
-		path='./cmu_us_bdl_arctic/wav/arctic_a000'+str(i)+'.wav'
+		path='../resources/cmu_us_bdl_arctic/wav/arctic_a000'+str(i)+'.wav'
 		a=cepstrum_based_pitch_estimation_system(path)
 		print(sum(a)/len(a))
 
