@@ -1,3 +1,5 @@
+import numpy
+
 def filter_banks(pow_frames, sample_rate, nfilt = 40, NFFT=512):
     ''' pow_frames: numpy array containing frames of the power spectrum, one frame per row
         sample_rate: sampling frequency

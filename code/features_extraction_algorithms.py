@@ -1,11 +1,15 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from numpy.fft import rfft,irfft,fft,ifft
+from numpy.fft import fft,ifft
+from scipy.fftpack import dct
 from scipy.signal import find_peaks,lfilter
 from scipy.io.wavfile import read
 #import scikits.talkbox as sktb
+
+
 from lpc import lpc_ref as lpc
+from filterbanks import filter_banks
 from signal_preprocessing import *
 
 def signal_energy(signal):
@@ -67,8 +71,12 @@ def autocorrelation_based_pitch_estimation_system(audiopath):
 	for i in range(len(autocorrs)):
 		if to_study[i]==1:
 			peaks_tmp, peaks_tmp_prop = find_peaks(autocorrs[i], height=0)
-			index_max=peaks_tmp[np.argmax(peaks_tmp_prop["peak_heights"])]
-			peaks.append(index_max)
+			if np.array_equal([],peaks_tmp):
+				peaks.append(0)
+				to_study[i]=0
+			else:
+				index_max=peaks_tmp[np.argmax(peaks_tmp_prop["peak_heights"])]
+				peaks.append(index_max)
 		else:
 			peaks.append(0)
 
@@ -117,7 +125,7 @@ def cepstrum_based_pitch_estimation_system(audiopath):
 	for i in range(len(frames)):
 		if to_study[i]==1:
 			frame=frames[i]
-			fft_frame=rfft(frame)
+			fft_frame=fft(frame)
 			log_frame=np.log(np.abs(fft_frame))
 			ifft_frame=ifft(log_frame)
 			cepstrums.append(ifft_frame.real)
@@ -182,7 +190,83 @@ def formants(audiopath):
 
 	return formants
 
+def MFCC(audiopath):
+	#0.init
+	samplerate, samples_int = read(audiopath)
+	samples=np.array(samples_int)
 
+	NTFD=512
+
+	#1.split the signal into frames
+	width=30
+	step=10
+
+	frames=split_into_frames(samples, samplerate, width, step)
+
+	#2.pass the signal into a first order high pass filter
+	filtered_frames=[]
+	for frame in frames:
+		filtered_frames.append(lfilter([1],[1., 0.97],frame))
+
+	#3.apply a hamming window onto the signal
+	windowed_frames=[]
+	for filtered_frame in filtered_frames:
+		windowed_frames.append(filtered_frame*np.hamming(len(filtered_frame)))
+
+	#4.compute the power spectrum
+	power_frames=[]
+	for windowed_frame in windowed_frames:
+		power_frames.append((fft(windowed_frame)**2)/2*NTFD)
+
+	#5.mel-filter
+	filter_banks_frames=filter_banks(power_frames,samplerate,nfilt=len(power_frames[0]),NFFT=2*(len(power_frames[0])-1))
+
+	#6.apply direct cosine transform
+	_dct=dct(filter_banks_frames,type=2,axis=1,norm='ortho')
+
+	#7.keep the first 13
+	_dct=_dct[:13]
+
+	return _dct
+
+
+def visualize_study(audiopaths):
+	for audiopath in audiopaths:
+		print("path : ",audiopath)
+		abpes=autocorrelation_based_pitch_estimation_system(audiopath)
+		plt.gcf().clear()
+		#plt.plot(abpes)
+		#plt.show()
+		fzero=0
+		total=0
+		for f0 in abpes:
+			if f0!=0 and f0<500:
+				fzero=fzero+f0
+				total=total+1
+		fzero=int(fzero/total)
+		print("F0 : ",fzero)
+
+		f=formants(audiopath)
+		f1=0
+		f2=0
+		f3=0
+		total1=0
+		total2=0
+		total3=0
+		for form in f:
+			if int(form[0])!=0:
+				f1=f1+form[0]
+				total1=total1+1
+			if int(form[1])!=0:
+				f2=f2+form[1]
+				total2=total2+1
+			if int(form[2])!=0:
+				f3=f3+form[2]
+				total3=total3+1
+		f1=int(f1/total1)
+		f2=int(f2/total2)
+		f3=int(f3/total3)
+		print('formants : ',f1,',',f2,',',f3)
 
 def test_with_tones():
 	tones=["100","1000"]
@@ -198,10 +282,6 @@ def test_with_tones():
 		#plt.plot(b)
 		plt.plot(a)
 		plt.show()
-		f=formants(path)
-		plt.plot(f)
-		plt.show()
-		print(f[0])
 
 def test_autocorrelation_based_pitch_estimation_system():
 	for i in range(1,2,1):
@@ -216,6 +296,44 @@ def test_cepstrum_based_pitch_estimation_system():
 		a=cepstrum_based_pitch_estimation_system(path)
 		print(sum(a)/len(a))
 
-test_with_tones()
+def test_mfcc():
+	for i in range(1,2,1):
+		path='../resources/cmu_us_bdl_arctic/wav/arctic_a000'+str(i)+'.wav'
+		a=MFCC(path)
+		print(a[0])
+
+#test_mfcc()
+#test_with_tones()
 #test_autocorrelation_based_pitch_estimation_system()
 #test_cepstrum_based_pitch_estimation_system()
+
+
+
+
+
+
+
+
+
+
+
+path=[]
+path.append('../resources/cmu_us_bdl_arctic/wav/arctic_a000'+'6'+'.wav')
+path.append('../resources/cmu_us_bdl_arctic/wav/arctic_a000'+'7'+'.wav')
+path.append('../resources/cmu_us_bdl_arctic/wav/arctic_a000'+'8'+'.wav')
+path.append('../resources/cmu_us_bdl_arctic/wav/arctic_a000'+'9'+'.wav')
+path.append('../resources/cmu_us_bdl_arctic/wav/arctic_a00'+'10'+'.wav')
+
+path.append('../resources/cmu_us_slt_arctic/wav/arctic_a000'+'6'+'.wav')
+path.append('../resources/cmu_us_slt_arctic/wav/arctic_a000'+'7'+'.wav')
+path.append('../resources/cmu_us_slt_arctic/wav/arctic_a000'+'8'+'.wav')
+path.append('../resources/cmu_us_slt_arctic/wav/arctic_a000'+'9'+'.wav')
+path.append('../resources/cmu_us_slt_arctic/wav/arctic_a00'+'10'+'.wav')
+visualize_study(path)
+
+
+#F0 mec = 120-170 
+#F0 meuf = 171 - 300 
+
+#Formants mec F3<1450
+#Formants meuf F3>1451
