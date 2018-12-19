@@ -9,8 +9,6 @@ from numpy.fft import fft,ifft
 from scipy.fftpack import dct
 from scipy.signal import find_peaks,lfilter
 from scipy.io.wavfile import read
-#import scikits.talkbox as sktb
-
 
 from lpc import lpc_ref as lpc
 from filterbanks import filter_banks
@@ -51,26 +49,6 @@ def autocorrelation_based_pitch_estimation_system(audiopath):
 	energy=[]
 	for i in range(len(frames)):
 		energy.append(signal_energy(frames[i]))
-
-	x=np.arange(len(samples))/samplerate*1000
-	x_energy=np.arange(len(energy))/len(energy)*(len(samples)/samplerate*1000)
-
-	thld=np.zeros(len(samples))
-
-	for i in range(len(thld)):
-		thld[i]=treshold
-
-
-	
-	#plt.plot(x,samples,'b')
-	plt.gcf().clear()
-	plt.plot(x_energy,energy,'y',label='energy')
-	plt.plot(x,thld,'r',label='treshold')
-	plt.xlabel('time (ms)')
-	plt.ylabel('energy (J)')
-	plt.title('Energy of the signal')
-	plt.legend()
-	plt.savefig(audiopath[-9:-4]+'_energy.png')
 
 	#4.separate voiced/unvoiced
 	to_study=np.array(np.zeros(len(energy)))
@@ -372,56 +350,12 @@ def rule_based_system(n):
 			if f3<1400:
 				print("C'est l'homme !")
 			else:
-				print("C'est peut être l'homme...")
+				print("C'est certainement l'homme...")
 
 		else:
 			if f3>=1400:
 				print("C'est la femme !")
 			else:
-				print("C'est peut être la femme...")
-
-
-def test_with_tones():
-	tones=["100","1000"]
-	#tones=["60","70","80","90","100","300","400","500"]
-	#tones=["10","20","30","40","50","60","70","80","90","100","300","400","500","600","700","800","900","1000","1200","1400","1600","1800","2000"]
-	file="../resources/sin_waves/"
-	wav=".wav"
-	for tone in tones:
-		path=file+tone+wav
-		a=autocorrelation_based_pitch_estimation_system(path)
-		#b=cepstrum_based_pitch_estimation_system(path)
-		plt.gcf().clear()
-		#plt.plot(b)
-		plt.plot(a)
-		plt.show()
-
-def test_autocorrelation_based_pitch_estimation_system():
-	for i in range(1,2,1):
-		path='../resources/cmu_us_bdl_arctic/wav/arctic_a000'+str(i)+'.wav'
-		a=autocorrelation_based_pitch_estimation_system(path)
-		plt.plot(a)
-		plt.show()
-
-def test_cepstrum_based_pitch_estimation_system():
-	for i in range(1,2,1):
-		path='../resources/cmu_us_bdl_arctic/wav/arctic_a000'+str(i)+'.wav'
-		a=cepstrum_based_pitch_estimation_system(path)
-		print(sum(a)/len(a))
-
-def test_mfcc():
-	for i in range(1,2,1):
-		path='../resources/cmu_us_bdl_arctic/wav/arctic_a000'+str(i)+'.wav'
-		a=MFCC(path)
-		print(a[0])
+				print("C'est certainement la femme...")
 
 rule_based_system(10)
-
-#visualize_study(50)
-
-
-#F0 mec = 120-170 
-#F0 meuf = 171 - 300 
-
-#Formants mec F3<1450
-#Formants meuf F3>1451
