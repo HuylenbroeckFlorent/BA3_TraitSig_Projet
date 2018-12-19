@@ -1,5 +1,9 @@
+from __future__ import division
+import os
+import random 
 import math
 import numpy as np
+import numpy.random as npr
 import matplotlib.pyplot as plt
 from numpy.fft import fft,ifft
 from scipy.fftpack import dct
@@ -47,6 +51,26 @@ def autocorrelation_based_pitch_estimation_system(audiopath):
 	energy=[]
 	for i in range(len(frames)):
 		energy.append(signal_energy(frames[i]))
+
+	x=np.arange(len(samples))/samplerate*1000
+	x_energy=np.arange(len(energy))/len(energy)*(len(samples)/samplerate*1000)
+
+	thld=np.zeros(len(samples))
+
+	for i in range(len(thld)):
+		thld[i]=treshold
+
+
+	
+	#plt.plot(x,samples,'b')
+	plt.gcf().clear()
+	plt.plot(x_energy,energy,'y',label='energy')
+	plt.plot(x,thld,'r',label='treshold')
+	plt.xlabel('time (ms)')
+	plt.ylabel('energy (J)')
+	plt.title('Energy of the signal')
+	plt.legend()
+	plt.savefig(audiopath[-9:-4]+'_energy.png')
 
 	#4.separate voiced/unvoiced
 	to_study=np.array(np.zeros(len(energy)))
@@ -230,21 +254,39 @@ def MFCC(audiopath):
 	return _dct
 
 
-def visualize_study(audiopaths):
-	for audiopath in audiopaths:
-		print("path : ",audiopath)
+def visualize_study(n):
+	male_audiopaths=[]
+	female_audiopaths=[]
+	for i in range(n):
+		male_audiopaths.append('../resources/cmu_us_bdl_arctic/wav/'+random.choice(os.listdir('../resources/cmu_us_bdl_arctic/wav/')))
+		female_audiopaths.append('../resources/cmu_us_slt_arctic/wav/'+random.choice(os.listdir('../resources/cmu_us_slt_arctic/wav/')))
+	
+	male_f_zeros=[]
+	female_f_zeros=[]
+
+	male_f1=[]
+	male_f2=[]
+	male_f3=[]
+
+	female_f1=[]
+	female_f2=[]
+	female_f3=[]
+
+	i=0
+	for audiopath in male_audiopaths+female_audiopaths:
+		print("processing path : ",audiopath)
 		abpes=autocorrelation_based_pitch_estimation_system(audiopath)
 		plt.gcf().clear()
-		#plt.plot(abpes)
-		#plt.show()
 		fzero=0
 		total=0
 		for f0 in abpes:
 			if f0!=0 and f0<500:
 				fzero=fzero+f0
 				total=total+1
-		fzero=int(fzero/total)
-		print("F0 : ",fzero)
+		if(i<n):
+			male_f_zeros.append(int(fzero/total))
+		else:
+			female_f_zeros.append(int(fzero/total))
 
 		f=formants(audiopath)
 		f1=0
@@ -263,10 +305,81 @@ def visualize_study(audiopaths):
 			if int(form[2])!=0:
 				f3=f3+form[2]
 				total3=total3+1
-		f1=int(f1/total1)
-		f2=int(f2/total2)
-		f3=int(f3/total3)
-		print('formants : ',f1,',',f2,',',f3)
+		if(i<n):
+			male_f1.append(int(f1/total1))
+			male_f2.append(int(f2/total2))
+			male_f3.append(int(f3/total3))
+		else:
+			female_f1.append(int(f1/total1))
+			female_f2.append(int(f2/total2))
+			female_f3.append(int(f3/total3))
+		i+=1
+
+	print('male f0 : ',male_f_zeros,'; avg = ',int(sum(male_f_zeros)/len(male_f_zeros)))
+	print('female f0 : ',female_f_zeros,'; avg = ',int(sum(female_f_zeros)/len(female_f_zeros)))
+
+	print('male F1 : ',male_f1,'; avg = ',int(sum(male_f1)/len(male_f1)))
+	print('male F2 : ',male_f2,'; avg = ',int(sum(male_f2)/len(male_f2)))
+	print('male F3 : ',male_f3,'; avg = ',int(sum(male_f3)/len(male_f3)))
+
+	print('female F1 : ',female_f1,'; avg = ',int(sum(female_f1)/len(female_f1)))
+	print('female F2 : ',female_f2,'; avg = ',int(sum(female_f2)/len(female_f2)))
+	print('female F3 : ',female_f3,'; avg = ',int(sum(female_f3)/len(female_f3)))
+
+def rule_based_system(n):
+	audiopaths=[]
+
+	for i in range(n):
+		if npr.choice([True,False]):
+			audiopaths.append('../resources/cmu_us_bdl_arctic/wav/'+random.choice(os.listdir('../resources/cmu_us_bdl_arctic/wav/')))
+		else:
+			audiopaths.append('../resources/cmu_us_slt_arctic/wav/'+random.choice(os.listdir('../resources/cmu_us_slt_arctic/wav/')))
+	
+	for audiopath in audiopaths:
+		print('processing ',audiopath)
+		abpes=autocorrelation_based_pitch_estimation_system(audiopath)
+		fzero=0
+		total=0
+		for f0 in abpes:
+			if f0!=0 and f0<500:
+				fzero=fzero+f0
+				total=total+1
+		fzero=fzero/total
+
+		f=formants(audiopath)
+		f1=0
+		f2=0
+		f3=0
+		total1=0
+		total2=0
+		total3=0
+		for form in f:
+			if int(form[0])!=0:
+				f1=f1+form[0]
+				total1=total1+1
+			if int(form[1])!=0:
+				f2=f2+form[1]
+				total2=total2+1
+			if int(form[2])!=0:
+				f3=f3+form[2]
+				total3=total3+1
+
+		f1=f1/total1
+		f2=f2/total2
+		f3=f3/total3
+
+		if fzero<150:
+			if f3<1400:
+				print("C'est l'homme !")
+			else:
+				print("C'est peut être l'homme...")
+
+		else:
+			if f3>=1400:
+				print("C'est la femme !")
+			else:
+				print("C'est peut être la femme...")
+
 
 def test_with_tones():
 	tones=["100","1000"]
@@ -302,34 +415,9 @@ def test_mfcc():
 		a=MFCC(path)
 		print(a[0])
 
-#test_mfcc()
-#test_with_tones()
-#test_autocorrelation_based_pitch_estimation_system()
-#test_cepstrum_based_pitch_estimation_system()
+rule_based_system(10)
 
-
-
-
-
-
-
-
-
-
-
-path=[]
-path.append('../resources/cmu_us_bdl_arctic/wav/arctic_a000'+'6'+'.wav')
-path.append('../resources/cmu_us_bdl_arctic/wav/arctic_a000'+'7'+'.wav')
-path.append('../resources/cmu_us_bdl_arctic/wav/arctic_a000'+'8'+'.wav')
-path.append('../resources/cmu_us_bdl_arctic/wav/arctic_a000'+'9'+'.wav')
-path.append('../resources/cmu_us_bdl_arctic/wav/arctic_a00'+'10'+'.wav')
-
-path.append('../resources/cmu_us_slt_arctic/wav/arctic_a000'+'6'+'.wav')
-path.append('../resources/cmu_us_slt_arctic/wav/arctic_a000'+'7'+'.wav')
-path.append('../resources/cmu_us_slt_arctic/wav/arctic_a000'+'8'+'.wav')
-path.append('../resources/cmu_us_slt_arctic/wav/arctic_a000'+'9'+'.wav')
-path.append('../resources/cmu_us_slt_arctic/wav/arctic_a00'+'10'+'.wav')
-visualize_study(path)
+#visualize_study(50)
 
 
 #F0 mec = 120-170 

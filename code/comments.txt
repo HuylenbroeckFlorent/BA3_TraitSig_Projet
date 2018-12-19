@@ -1,20 +1,24 @@
 #line 33 of featu(...).py
 
-'''
 	x=np.arange(len(samples))/samplerate*1000
 	x_energy=np.arange(len(energy))/len(energy)*(len(samples)/samplerate*1000)
 
-	thld=zeros(len(samples))
+	thld=np.zeros(len(samples))
 
 	for i in range(len(thld)):
 		thld[i]=treshold
 
 
 	
-	plot(x,normalized_samples,'b')
-	plot(x_energy,energy,'y')
-	plot(x,thld,'r')
-	show()'''
+	#plt.plot(x,samples,'b')
+	plt.gcf().clear()
+	plt.plot(x_energy,energy,'y',label='energy')
+	plt.plot(x,thld,'r',label='treshold')
+	plt.xlabel('time (ms)')
+	plt.ylabel('energy (J)')
+	plt.title('Energy of the signal')
+	plt.legend()
+	plt.savefig(audiopath[-9:-4]+'_energy.png')
 
 
 
